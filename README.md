@@ -19,7 +19,7 @@ How To Usage
 
 #### Create Request Object ####
 ```php
-use \Mtchabok\Database\Request;
+use \Mtchabok\Request\Request;
 
 $request = new Request();
 
