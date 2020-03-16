@@ -1,0 +1,23 @@
+{
+  "name": "mtchabok/request",
+  "description": "php request control",
+  "minimum-stability": "stable",
+  "type": "library",
+  "license": "MIT",
+  "readme": "README.md",
+  "keywords": ["PHP Request", "Web Request", "Cli Request"],
+  "authors": [
+    {
+      "name": "Mohammad Taghi Chabok",
+      "email": "mtchabok@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=7.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Mtchabok\\Request\\": "src/"
+    }
+  }
+}
