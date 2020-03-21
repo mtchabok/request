@@ -1,6 +1,8 @@
 <?php
 namespace Mtchabok\Request;
 
+use Mtchabok\Url\Url;
+
 /**
  * Class RequestData
  * @package Mtchabok\Request
@@ -111,6 +113,13 @@ class RequestData
 	 */
 	public function getFile($name)
 	{ return $this->_request->get($this->_name($name), null, Request::VARS_FILES); }
+
+
+
+
+	/** @return Url */
+	public function getUrl()
+	{ return $this->_request->getUrl(); }
 
 
 

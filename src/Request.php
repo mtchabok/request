@@ -1,6 +1,8 @@
 <?php
 namespace Mtchabok\Request;
 
+use Mtchabok\Url\Url;
+
 /**
  * Class Request
  * @package Mtchabok\Request
@@ -26,6 +28,7 @@ class Request
 
 	private $_method        = '';
 	private $_useGlobalData = true;
+	private $_url			= null;
 
 	private $_datas         = [];
 
@@ -215,6 +218,13 @@ class Request
 	}
 
 
+	/**
+	 * get url
+	 * @return Url
+	 */
+	public function getUrl() :Url
+	{ return $this->_url; }
+
 
 
 
@@ -276,6 +286,14 @@ class Request
 			$this->_method = $method;
 			$this->_useGlobalData = false;
 		}else throw new \Exception("this http method not supported: {$method}");
+
+		if(isset($options['url']))
+			$this->_url = Url::parse($options['url']);
+		elseif(!in_array($this->_method, [self::METHOD_CLI]))
+			$this->_url = Url::current();
+		else
+			$this->_url = new Url();
+		$this->_url->setReadOnly(true);
 	}
 
 
