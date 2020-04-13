@@ -21,13 +21,46 @@ How To Usage
 ```php
 use \Mtchabok\Request\Request;
 
-$request = new Request();
-
-$request = Request::newAuto();
-
-$request = new Request(Request::METHOD_CLI);
-
+$request = Request::newRequest();
 $request = Request::newCli();
+$request = Request::newRequestGlobal();
+$request = Request::newGetGlobal();
+$request = Request::newCliGlobal();
+```
+
+#### Request Server Details ($_SERVER or local array) ####
+```php
+$request->server->HTTP_HOST;
+$request->server->getString('REMOTE_ADDR', '127.0.0.1');
+$request->server['REQUEST_TIME'];
+```
+
+#### Request Query Details ($_GET or local array) ####
+```php
+$request->query->foo; // string
+$request->query->getNumber('id', 12); // numeric: int or float
+$request->query['page']; // string
+```
+
+#### Request Post Details ($_POST or local array) ####
+```php
+$request->post->first_name;
+$request->post->getString('last_name', null, ' -'); // return (string) (isset($_POST['last_name']) ?trim($_POST['last_name'], ' -') :null);
+$request->post['mobile'];
+```
+
+#### Request Set Data ####
+```php
+$request->post->country = 'Iran';
+$request->post->set('city', 'Tehran');
+$request->get['postal_code'] = '1234567890';
+```
+
+#### Request Delete Data ####
+```php
+$request->query->delete('postal_code');
+unset($request->post->city);
+unset($request->post['country']);
 ```
 
 #### For More Usage Documentation, Use This Request Package By IDE ####

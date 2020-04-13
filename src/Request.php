@@ -1,13 +1,38 @@
 <?php
 namespace Mtchabok\Request;
 
-use Mtchabok\Url\Url;
+use Exception;
+use Mtchabok\ClassAlias\ClassAlias;
+use Mtchabok\Request\DataBox\CookieBox;
+use Mtchabok\Request\DataBox\FileBox;
+use Mtchabok\Request\DataBox\PostBox;
+use Mtchabok\Request\DataBox\QueryBox;
+use Mtchabok\Request\DataBox\ServerBox;
+use function json_decode;
+use function simplexml_load_string;
 
 /**
  * Class Request
  * @package Mtchabok\Request
  *
- * @property-read string method
+ * @property-read 	string 		method
+ * @property 		ServerBox 	server
+ * @property 		QueryBox 	query
+ * @property 		PostBox		post
+ * @property 		FileBox		file
+ * @property 		CookieBox	cookie
+ *
+ * @method 			bool		isGet()
+ * @method 			bool		isHead()
+ * @method 			bool		isDelete()
+ * @method 			bool		isPost()
+ * @method 			bool		isPut()
+ * @method 			bool		isPatch()
+ * @method 			bool		isCli()
+ * @method 			bool		isPurge()
+ * @method 			bool		isOptions()
+ * @method 			bool		isTrace()
+ * @method 			bool		isConnect()
  */
 class Request
 {
@@ -18,114 +43,29 @@ class Request
 	const METHOD_PUT        = 'PUT';
 	const METHOD_PATCH      = 'PATCH';
 	const METHOD_CLI        = 'CLI';
-
-	const VARS_GET          = 'GET';
-	const VARS_POST         = 'POST';
-	const VARS_COOKIE       = 'COOKIE';
-	const VARS_FILES        = 'FILES';
-	const VARS_RAW_DATA     = 'RAW_DATA';
-	const VARS_CLI_ARGS     = 'CLI_ARGS';
-
-	private $_method        = '';
-	private $_useGlobalData = true;
-	private $_url			= null;
-
-	private $_datas         = [];
+	const METHOD_PURGE		= 'PURGE';
+	const METHOD_OPTIONS	= 'OPTIONS';
+	const METHOD_TRACE		= 'TRACE';
+	const METHOD_CONNECT	= 'CONNECT';
 
 
 
+	/** @var string */
+	protected $_method      = '';
+	/** @var array */
+	protected $_requestData	= [];
 
+	/** @var ServerBox */
+	protected $_server;
+	/** @var QueryBox */
+	protected $_query;
+	/** @var PostBox */
+	protected $_post;
+	/** @var FileBox */
+	protected $_file;
+	/** @var CookieBox */
+	protected $_cookie;
 
-
-
-
-	/**
-	 * @return Request
-	 * @param array $options
-	 * @throws \Exception
-	 */
-	public static function newAuto($options = [])
-	{
-		$request = new self(null, $options);
-		return $request;
-	}
-
-	/**
-	 * @return Request
-	 * @param array $options
-	 * @throws \Exception
-	 */
-	public static function newGet($options = [])
-	{
-		$request = new self(self::METHOD_GET, $options);
-		return $request;
-	}
-
-	/**
-	 * @return Request
-	 * @param array $options
-	 * @throws \Exception
-	 */
-	public static function newHead($options = [])
-	{
-		$request = new self(self::METHOD_HEAD, $options);
-		return $request;
-	}
-
-	/**
-	 * @return Request
-	 * @param array $options
-	 * @throws \Exception
-	 */
-	public static function newDelete($options = [])
-	{
-		$request = new self(self::METHOD_DELETE, $options);
-		return $request;
-	}
-
-	/**
-	 * @return Request
-	 * @param array $options
-	 * @throws \Exception
-	 */
-	public static function newPost($options = [])
-	{
-		$request = new self(self::METHOD_POST, $options);
-		return $request;
-	}
-
-	/**
-	 * @return Request
-	 * @param array $options
-	 * @throws \Exception
-	 */
-	public static function newPut($options = [])
-	{
-		$request = new self(self::METHOD_PUT, $options);
-		return $request;
-	}
-
-	/**
-	 * @return Request
-	 * @param array $options
-	 * @throws \Exception
-	 */
-	public static function newPatch($options = [])
-	{
-		$request = new self(self::METHOD_PATCH, $options);
-		return $request;
-	}
-
-	/**
-	 * @return Request
-	 * @param array $options
-	 * @throws \Exception
-	 */
-	public static function newCli($options = [])
-	{
-		$request = new self(self::METHOD_CLI, $options);
-		return $request;
-	}
 
 
 
@@ -144,164 +84,272 @@ class Request
 		$methods = array_reduce(
 			is_array($methods) ?$methods :func_get_args()
 			, function ($all, $v){
-			if(is_string($v)) $all[] = strtoupper($v);
-			return $all;
-		}
+				if(is_string($v)) $all[] = strtoupper($v);
+				return $all;
+			}
 		);
 		return in_array($this->_method, $methods);
 	}
 
 
 
-
 	/**
-	 * @param array $options
-	 * @return RequestData
-	 */
-	public function data($options = [])
-	{ return new RequestData($this, array_merge([], $options)); }
-
-
-	/**
-	 * @param string $name
-	 * @param string $varType=null
+	 * @param string $index
 	 * @return bool
 	 */
-	public function exist($name, $varType = null)
+	public function exist(string $index) :bool
 	{
-		if(null!==$varType) $varType = strtoupper($varType);
-		if(array_key_exists($name, $this->_datas) AND (null===$varType OR $varType==$this->_datas[$name]->type))
+		if(array_key_exists($index, $this->_requestData))
 			return true;
-		if($this->_useGlobalData && in_array($this->method, [self::METHOD_GET, self::METHOD_DELETE, self::METHOD_HEAD, self::METHOD_PUT, self::METHOD_PATCH])){
-			return ( (null===$varType OR self::VARS_GET==$varType) AND array_key_exists($name, $_GET) )
-				OR ( (null===$varType OR self::VARS_COOKIE==$varType) AND array_key_exists($name, $_COOKIE) )
-				OR false;
-		}elseif ($this->_useGlobalData && in_array($this->method, [self::METHOD_POST])){
-			return ( (null===$varType OR self::VARS_GET==$varType) AND array_key_exists($name, $_GET) )
-				OR ( (null===$varType OR self::VARS_POST==$varType) AND array_key_exists($name, $_POST) )
-				OR ( (null===$varType OR self::VARS_COOKIE==$varType) AND array_key_exists($name, $_COOKIE) )
-				OR ( (null===$varType OR self::VARS_FILES==$varType) AND array_key_exists($name, $_FILES) )
-				OR false;
-		}
+		if(static::METHOD_CLI==$this->_method)
+			return false;
+		if($this->_query->exist($index) || $this->_post->exist($index) || $this->_cookie->exist($index))
+			return true;
 		return false;
 	}
 
-
 	/**
-	 * @param string $name
-	 * @param mixed|null $default=null
-	 * @param string $varType=null Request::VARS_...
+	 * @param string $index
+	 * @param mixed $default [optional]
 	 * @return mixed
 	 */
-	public function get($name, $default = null, $varType = null)
+	public function get(string $index, $default = null)
 	{
-		if(null!==$varType) $varType = strtoupper($varType);
-		if(array_key_exists($name, $this->_datas) AND ( $varType === null OR $varType==$this->_datas[$name]->type ) ){
-			return $this->_datas[$name]->value;
-		}
-		if($this->_useGlobalData && in_array($this->method, [self::METHOD_GET, self::METHOD_DELETE, self::METHOD_HEAD, self::METHOD_PUT, self::METHOD_PATCH])){
-			if((null===$varType OR self::VARS_GET==$varType) AND array_key_exists($name, $_GET))
-				return $_GET[$name];
-			elseif ((null===$varType OR self::VARS_COOKIE==$varType) AND array_key_exists($name, $_COOKIE))
-				return $_COOKIE[$name];
-		}elseif ($this->_useGlobalData && in_array($this->method, [self::METHOD_POST])){
-			if((null===$varType OR self::VARS_GET==$varType) AND array_key_exists($name, $_GET))
-				return $_GET[$name];
-			elseif ((null===$varType OR self::VARS_POST==$varType) AND array_key_exists($name, $_POST))
-				return $_POST[$name];
-			elseif ((null===$varType OR self::VARS_COOKIE==$varType) AND array_key_exists($name, $_COOKIE))
-				return $_COOKIE[$name];
-			elseif ((null===$varType OR self::VARS_FILES==$varType) AND array_key_exists($name, $_FILES))
-				return $_FILES[$name];
+		if(array_key_exists($index, $this->_requestData))
+			return $this->_requestData[$index];
+		if(static::METHOD_CLI!=$this->_method){
+			if($this->_query->exist($index))
+				return $this->_query->get($index);
+			elseif($this->_post->exist($index))
+				return $this->_post->get($index);
+			elseif($this->_cookie->exist($index))
+				return $this->_cookie->get($index);
 		}
 		return $default;
 	}
 
-
 	/**
-	 * get url
-	 * @return Url
+	 * @param string $index
+	 * @param mixed $value
+	 * @return $this
 	 */
-	public function getUrl() :Url
-	{ return $this->_url; }
-
-
-
-
-
-
-
-
-	/**
-	 * Request constructor.
-	 * @param string $method=null
-	 * @param array $options=[]
-	 * @throws \Exception
-	 */
-	public function __construct($method = null, $options = [])
+	public function set(string $index, $value)
 	{
-		if(null===$method){
+		$this->_requestData[(string) $index] = $value;
+		return $this;
+	}
 
-			// cli mode
-			if(defined('STDIN') || php_sapi_name() === 'cli' || array_key_exists('SHELL', $_ENV)) {
-				$this->_method = self::METHOD_CLI;
-				$this->_datas['args'] = new RequestDataValue(self::VARS_CLI_ARGS, $_SERVER['argv']);
-				$this->_datas['filename'] = new RequestDataValue(self::VARS_CLI_ARGS, array_shift($this->_datas['args']->value));
-				foreach ($this->_datas['args']->value as $arg){
-					if(false!==strpos($arg, '=')){
-						$arg = explode('=', $arg,2);
-						//$this->_datas[trim($arg[0])] = trim($arg[1]);
-						$this->_datas[trim($arg[0])] = new RequestDataValue(self::VARS_CLI_ARGS, trim($arg[1]));
-					}
+	/**
+	 * @param string $index
+	 * @return $this
+	 */
+	public function delete(string $index)
+	{
+		unset($this->_requestData[(string) $index]);
+		return $this;
+	}
+
+
+
+
+
+
+
+
+
+
+
+	/**
+	 * @param string|array $options [optional]
+	 * @return Request
+	 */
+	public static function newRequest($options = null)
+	{ return static::__callStatic(__FUNCTION__, [is_string($options) ?['method'=>$options] :$options]); }
+
+	/**
+	 * @param string|array $options [optional]
+	 * @return Request
+	 */
+	public static function newRequestGlobal($options = null)
+	{ return static::__callStatic(__FUNCTION__, [is_string($options) ?['method'=>$options] :$options]); }
+
+	/**
+	 * @param array $options [optional]
+	 * @return Request
+	 */
+	public static function newGet($options = null)
+	{ return static::__callStatic(__FUNCTION__, [$options]); }
+
+	/**
+	 * @param array $options [optional]
+	 * @return Request
+	 */
+	public static function newGetGlobal($options = null)
+	{ return static::__callStatic(__FUNCTION__, [$options]); }
+
+	/**
+	 * @param array $options [optional]
+	 * @return Request
+	 */
+	public static function newPost($options = null)
+	{ return static::__callStatic(__FUNCTION__, [$options]); }
+
+	/**
+	 * @param array $options [optional]
+	 * @return Request
+	 */
+	public static function newPostGlobal($options = null)
+	{ return static::__callStatic(__FUNCTION__, [$options]); }
+
+	/**
+	 * @param array $options [optional]
+	 * @return Request
+	 */
+	public static function newCli($options = null)
+	{ return static::__callStatic(__FUNCTION__, [$options]); }
+
+	/**
+	 * @param array $options [optional]
+	 * @return Request
+	 */
+	public static function newCliGlobal($options = null)
+	{ return static::__callStatic(__FUNCTION__, [$options]); }
+
+
+
+
+
+
+
+
+	/**
+	 * @return ClassAlias
+	 */
+	public static function getClassAlias()
+	{
+		if(!$CA = ClassAlias::getClassAlias('MTCHABOK_REQUEST')){
+			ClassAlias::getClassAlias()->addOnNotExist([
+				['alias'=>'MtchabokRequest', 'className'=>static::class, 'method'=>null],
+				['alias'=>'MtchabokRequestCookieBox', 'className'=>CookieBox::class],
+				['alias'=>'MtchabokRequestFileBox', 'className'=>FileBox::class],
+				['alias'=>'MtchabokRequestPostBox', 'className'=>PostBox::class],
+				['alias'=>'MtchabokRequestQueryBox', 'className'=>QueryBox::class],
+				['alias'=>'MtchabokRequestServerBox', 'className'=>ServerBox::class],
+			]);
+
+			$CA = ClassAlias::newClassAlias('MTCHABOK_REQUEST');
+			$CA->add([
+				['alias'=>'newRequest'	, 'className'=>static::class, 'link'=>['', 'MtchabokRequest'], 'method'=>null],
+				['alias'=>'newGet'		, 'className'=>static::class, 'method'=>Request::METHOD_GET],
+				['alias'=>'newPost'		, 'className'=>static::class, 'method'=>Request::METHOD_POST],
+				['alias'=>'newDelete'	, 'className'=>static::class, 'method'=>Request::METHOD_DELETE],
+				['alias'=>'newHead'		, 'className'=>static::class, 'method'=>Request::METHOD_HEAD],
+				['alias'=>'newPut'		, 'className'=>static::class, 'method'=>Request::METHOD_PUT],
+				['alias'=>'newPatch'	, 'className'=>static::class, 'method'=>Request::METHOD_PATCH],
+				['alias'=>'newCli'		, 'className'=>static::class, 'method'=>Request::METHOD_CLI],
+				['alias'=>'newPurge'	, 'className'=>static::class, 'method'=>Request::METHOD_PURGE],
+				['alias'=>'newOptions'	, 'className'=>static::class, 'method'=>Request::METHOD_OPTIONS],
+				['alias'=>'newTrace'	, 'className'=>static::class, 'method'=>Request::METHOD_TRACE],
+				['alias'=>'newConnect'	, 'className'=>static::class, 'method'=>Request::METHOD_CONNECT],
+			]);
+			ClassAlias::addClassAlias($CA);
+		} return $CA;
+	}
+
+
+
+
+
+
+
+
+	public static function __callStatic($name, $arguments)
+	{
+		if(substr($name, 0, 3)=='new'){
+			if($isGlobal = substr($name, -6)=='Global')
+				$name = substr($name,0,-6);
+			$aliasDetail = static::getClassAlias()->get($name, true);
+			$className = $aliasDetail
+				?$aliasDetail->getClassName(Request::class)
+				:static::getClassAlias()->getClassName('MtchabokRequest', Request::class);
+			$options = isset($arguments[0]) ?(array)$arguments[0] :[];
+			if($isGlobal) {
+				foreach (['server', 'query', 'post', 'file', 'cookie'] as $n) {
+					if (!isset($options[$n]['parent'])) $options[$n]['parentOnly'] = true;
 				}
-				// get mode
-			}elseif (!empty($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD']==self::METHOD_GET){
-				$this->_method = self::METHOD_GET;
-				// post mode
-			}elseif (!empty($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD']==self::METHOD_POST){
-				$this->_method = self::METHOD_POST;
-				// head & delete mode
-			}elseif (!empty($_SERVER['REQUEST_METHOD']) && in_array(strtoupper($_SERVER['REQUEST_METHOD']), [self::METHOD_HEAD, self::METHOD_DELETE])){
-				$this->_method = strtoupper($_SERVER['REQUEST_METHOD']);
-				// put & patch mode
-			}elseif (!empty($_SERVER['REQUEST_METHOD']) && in_array(strtoupper($_SERVER['REQUEST_METHOD']), [self::METHOD_PUT, self::METHOD_PATCH])){
-				$this->_method = strtoupper($_SERVER['REQUEST_METHOD']);
-				$input = file_get_contents('php://input');
-				if($_SERVER['CONTENT_TYPE']=='application/json'){
-					$input = json_decode($input);
-					//$this->_datas['input'] = $input;
-					$this->_datas['input'] = new RequestDataValue(self::VARS_RAW_DATA, $input);
-				}elseif ($_SERVER['CONTENT_TYPE']=='application/xml'){
-					try{
-						$input = @simplexml_load_string($input);
-						$this->_datas['input'] = new RequestDataValue(self::VARS_RAW_DATA, $input);
-					}catch (\Exception $e){
-						unset($this->_datas['input']);
-					}
+			}
+			if($method = $aliasDetail ?$aliasDetail->get('method',null) :null)
+				$options['method'] = $method;
+			$request = new $className($options);
+			assert($request instanceof Request);
+			return $request;
+		}
+		return null;
+	}
 
+
+
+
+
+	final private function __construct(array $options = null)
+	{
+		foreach ([
+			'server' => [ &$this->_server, 'MtchabokRequestServerBox', ServerBox::class ],
+			'query' => [ &$this->_query, 'MtchabokRequestQueryBox', QueryBox::class ],
+			'post' => [ &$this->_post, 'MtchabokRequestPostBox', PostBox::class ],
+			'file' => [ &$this->_file, 'MtchabokRequestFileBox', FileBox::class ],
+			'cookie' => [ &$this->_cookie, 'MtchabokRequestCookieBox', CookieBox::class ],
+				 ] as $pn=>&$pv){
+			$className = self::getClassAlias()->getClassName($pv[1], $pv[2]);
+			if(!empty($options[$pn]))
+				$pv[0] = $options[$pn] instanceof $pv[2] ?$options[$pn] :new $className($options[$pn]);
+			else
+				$pv[0] = new $className();
+		}
+
+		// found method
+		if(empty($options['method']) || !is_string($options['method'])){
+			if(defined('STDIN') || php_sapi_name() === 'cli' || array_key_exists('SHELL', isset($_ENV) ?$_ENV :[]))
+				$this->_method = static::METHOD_CLI;
+			elseif (!empty($this->_server['REQUEST_METHOD']))
+				$this->_method = strtoupper((string) $this->_server->REQUEST_METHOD);
+		}else $this->_method = strtoupper((string) $options['method']);
+
+		// parse raw input for put and patch methods
+		if(in_array($this->_method, [static::METHOD_PUT, static::METHOD_PATCH])){
+			$this->_requestData['input_raw'] = isset($options['input_raw']) ?$options['input_raw'] :file_get_contents('php://input');
+			if($this->_server['CONTENT_TYPE']=='application/json'){
+				$input = json_decode($this->_requestData['input_raw']);
+				$this->_requestData['input'] = $input;
+			}elseif ($this->_server['CONTENT_TYPE']=='application/xml'){
+				try{
+					$input = @simplexml_load_string($this->_requestData['input_raw']);
+					$this->_requestData['input'] = $input;
+				}catch (Exception $e){
+					unset($this->_requestData['input']);
 				}
-			}else throw new \Exception("current http request not supported: {$_SERVER['REQUEST_METHOD']}");
+			}
+		}
 
-		}elseif(in_array($method, [self::METHOD_GET, self::METHOD_POST, self::METHOD_DELETE, self::METHOD_HEAD, self::METHOD_PUT, self::METHOD_PATCH, self::METHOD_CLI])) {
-			$this->_method = $method;
-			$this->_useGlobalData = false;
-		}else throw new \Exception("this http method not supported: {$method}");
+	}
 
-		if(isset($options['url']))
-			$this->_url = Url::parse($options['url']);
-		elseif(!in_array($this->_method, [self::METHOD_CLI]))
-			$this->_url = Url::current();
-		else
-			$this->_url = new Url();
-		$this->_url->setReadOnly(true);
+	public function __call($name, $arguments)
+	{
+		if(preg_match('#^is(([A-Z]).*)$#', $name, $nameParsed) && !empty($nameParsed[1]))
+			return $this->isMethod($nameParsed[1]);
+		return null;
 	}
 
 
 	public function __get($name)
 	{
 		switch ($name){
-			case 'method':
-				return $this->_method;
+			case 'method': return $this->_method;
+			case 'server': return $this->_server;
+			case 'query': return $this->_query;
+			case 'post': return $this->_post;
+			case 'file': return $this->_file;
+			case 'cookie': return $this->_cookie;
 			default:
 				return null;
 		}
@@ -311,7 +359,7 @@ class Request
 	{}
 
 	public function __isset($name)
-	{}
+	{ return in_array($name, ['method', 'server', 'query', 'post', 'file', 'cookie']); }
 
 	public function __unset($name)
 	{}
