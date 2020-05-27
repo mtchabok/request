@@ -9,7 +9,7 @@ use ArrayIterator;
  *
  *
  */
-class ParameterBox implements \ArrayAccess, \Countable, \IteratorAggregate
+abstract class ParameterBox implements \ArrayAccess, \Countable, \IteratorAggregate
 {
 	/** @var ParameterBox|array */
 	protected $_parent;

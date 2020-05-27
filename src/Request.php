@@ -33,6 +33,7 @@ use function simplexml_load_string;
  * @method 			bool		isOptions()
  * @method 			bool		isTrace()
  * @method 			bool		isConnect()
+ *
  */
 class Request
 {
@@ -47,6 +48,19 @@ class Request
 	const METHOD_OPTIONS	= 'OPTIONS';
 	const METHOD_TRACE		= 'TRACE';
 	const METHOD_CONNECT	= 'CONNECT';
+	const METHODS_CLASSES   = [
+		'GET'       => Request::class,
+		'HEAD'      => Request::class,
+		'DELETE'    => Request::class,
+		'POST'      => Request::class,
+		'PUT'       => Request::class,
+		'PATCH'     => Request::class,
+		'CLI'       => Request::class,
+		'PURGE'     => Request::class,
+		'OPTIONS'   => Request::class,
+		'TRACE'     => Request::class,
+		'CONNECT'   => Request::class,
+	];
 
 
 
@@ -65,6 +79,7 @@ class Request
 	protected $_file;
 	/** @var CookieBox */
 	protected $_cookie;
+
 
 
 
@@ -164,127 +179,29 @@ class Request
 	 * @return Request
 	 */
 	public static function newRequest($options = null)
-	{ return static::__callStatic(__FUNCTION__, [is_string($options) ?['method'=>$options] :$options]); }
+	{
+		$options = is_string($options) ?['method'=>strtoupper($options)] :[];
+		$CN = static::class;
+		if(array_key_exists('method', $options) && is_string($options['method'])
+			&& array_key_exists($options['method'], static::METHODS_CLASSES))
+			$CN = static::METHODS_CLASSES[$options['method']];
+		return new $CN($options);
+	}
 
 	/**
 	 * @param string|array $options [optional]
 	 * @return Request
 	 */
 	public static function newRequestGlobal($options = null)
-	{ return static::__callStatic(__FUNCTION__, [is_string($options) ?['method'=>$options] :$options]); }
-
-	/**
-	 * @param array $options [optional]
-	 * @return Request
-	 */
-	public static function newGet($options = null)
-	{ return static::__callStatic(__FUNCTION__, [$options]); }
-
-	/**
-	 * @param array $options [optional]
-	 * @return Request
-	 */
-	public static function newGetGlobal($options = null)
-	{ return static::__callStatic(__FUNCTION__, [$options]); }
-
-	/**
-	 * @param array $options [optional]
-	 * @return Request
-	 */
-	public static function newPost($options = null)
-	{ return static::__callStatic(__FUNCTION__, [$options]); }
-
-	/**
-	 * @param array $options [optional]
-	 * @return Request
-	 */
-	public static function newPostGlobal($options = null)
-	{ return static::__callStatic(__FUNCTION__, [$options]); }
-
-	/**
-	 * @param array $options [optional]
-	 * @return Request
-	 */
-	public static function newCli($options = null)
-	{ return static::__callStatic(__FUNCTION__, [$options]); }
-
-	/**
-	 * @param array $options [optional]
-	 * @return Request
-	 */
-	public static function newCliGlobal($options = null)
-	{ return static::__callStatic(__FUNCTION__, [$options]); }
-
-
-
-
-
-
-
-
-	/**
-	 * @return ClassAlias
-	 */
-	public static function getClassAlias()
 	{
-		if(!$CA = ClassAlias::getClassAlias('MTCHABOK_REQUEST')){
-			ClassAlias::getClassAlias()->addOnNotExist([
-				['alias'=>'MtchabokRequest', 'className'=>static::class, 'method'=>null],
-				['alias'=>'MtchabokRequestCookieBox', 'className'=>CookieBox::class],
-				['alias'=>'MtchabokRequestFileBox', 'className'=>FileBox::class],
-				['alias'=>'MtchabokRequestPostBox', 'className'=>PostBox::class],
-				['alias'=>'MtchabokRequestQueryBox', 'className'=>QueryBox::class],
-				['alias'=>'MtchabokRequestServerBox', 'className'=>ServerBox::class],
-			]);
-
-			$CA = ClassAlias::newClassAlias('MTCHABOK_REQUEST');
-			$CA->add([
-				['alias'=>'newRequest'	, 'className'=>static::class, 'link'=>['', 'MtchabokRequest'], 'method'=>null],
-				['alias'=>'newGet'		, 'className'=>static::class, 'method'=>Request::METHOD_GET],
-				['alias'=>'newPost'		, 'className'=>static::class, 'method'=>Request::METHOD_POST],
-				['alias'=>'newDelete'	, 'className'=>static::class, 'method'=>Request::METHOD_DELETE],
-				['alias'=>'newHead'		, 'className'=>static::class, 'method'=>Request::METHOD_HEAD],
-				['alias'=>'newPut'		, 'className'=>static::class, 'method'=>Request::METHOD_PUT],
-				['alias'=>'newPatch'	, 'className'=>static::class, 'method'=>Request::METHOD_PATCH],
-				['alias'=>'newCli'		, 'className'=>static::class, 'method'=>Request::METHOD_CLI],
-				['alias'=>'newPurge'	, 'className'=>static::class, 'method'=>Request::METHOD_PURGE],
-				['alias'=>'newOptions'	, 'className'=>static::class, 'method'=>Request::METHOD_OPTIONS],
-				['alias'=>'newTrace'	, 'className'=>static::class, 'method'=>Request::METHOD_TRACE],
-				['alias'=>'newConnect'	, 'className'=>static::class, 'method'=>Request::METHOD_CONNECT],
-			]);
-			ClassAlias::addClassAlias($CA);
-		} return $CA;
-	}
-
-
-
-
-
-
-
-
-	public static function __callStatic($name, $arguments)
-	{
-		if(substr($name, 0, 3)=='new'){
-			if($isGlobal = substr($name, -6)=='Global')
-				$name = substr($name,0,-6);
-			$aliasDetail = static::getClassAlias()->get($name, true);
-			$className = $aliasDetail
-				?$aliasDetail->getClassName(Request::class)
-				:static::getClassAlias()->getClassName('MtchabokRequest', Request::class);
-			$options = isset($arguments[0]) ?(array)$arguments[0] :[];
-			if($isGlobal) {
-				foreach (['server', 'query', 'post', 'file', 'cookie'] as $n) {
-					if (!isset($options[$n]['parent'])) $options[$n]['parentOnly'] = true;
-				}
-			}
-			if($method = $aliasDetail ?$aliasDetail->get('method',null) :null)
-				$options['method'] = $method;
-			$request = new $className($options);
-			assert($request instanceof Request);
-			return $request;
-		}
-		return null;
+		$options = is_string($options) ?['method'=>strtoupper($options)] :[];
+		$CN = static::class;
+		if(array_key_exists('method', $options) && is_string($options['method'])
+			&& array_key_exists($options['method'], static::METHODS_CLASSES))
+			$CN = static::METHODS_CLASSES[$options['method']];
+		foreach (['server', 'query', 'post', 'file', 'cookie'] as $n)
+			if (!isset($options[$n]['parent'])) $options[$n]['parentOnly'] = true;
+		return new $CN($options);
 	}
 
 
@@ -294,17 +211,17 @@ class Request
 	final private function __construct(array $options = null)
 	{
 		foreach ([
-			'server' => [ &$this->_server, 'MtchabokRequestServerBox', ServerBox::class ],
-			'query' => [ &$this->_query, 'MtchabokRequestQueryBox', QueryBox::class ],
-			'post' => [ &$this->_post, 'MtchabokRequestPostBox', PostBox::class ],
-			'file' => [ &$this->_file, 'MtchabokRequestFileBox', FileBox::class ],
-			'cookie' => [ &$this->_cookie, 'MtchabokRequestCookieBox', CookieBox::class ],
-				 ] as $pn=>&$pv){
-			$className = self::getClassAlias()->getClassName($pv[1], $pv[2]);
+				'server' => [ &$this->_server, ServerBox::class ],
+				'query' => [ &$this->_query, QueryBox::class ],
+				'post' => [ &$this->_post, PostBox::class ],
+				'file' => [ &$this->_file, FileBox::class ],
+				'cookie' => [ &$this->_cookie, CookieBox::class ],
+	         ] as $pn=>&$pv){
+			$CN = $pv[1];
 			if(!empty($options[$pn]))
-				$pv[0] = $options[$pn] instanceof $pv[2] ?$options[$pn] :new $className($options[$pn]);
+				$pv[0] = $options[$pn] instanceof $pv[1] ?$options[$pn] :new $CN($options[$pn]);
 			else
-				$pv[0] = new $className();
+				$pv[0] = new $CN();
 		}
 
 		// found method
@@ -330,13 +247,12 @@ class Request
 				}
 			}
 		}
-
 	}
 
 	public function __call($name, $arguments)
 	{
-		if(preg_match('#^is(([A-Z]).*)$#', $name, $nameParsed) && !empty($nameParsed[1]))
-			return $this->isMethod($nameParsed[1]);
+		if(preg_match('#^is([A-Z].+)$#', $name, $nameParsed) && !empty($nameParsed[1]))
+			return $this->isMethod(strtoupper($nameParsed[1]));
 		return null;
 	}
 

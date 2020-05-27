@@ -15,8 +15,7 @@
   "require": {
     "php": ">=7.0",
     "ext-json": "*",
-    "ext-simplexml": "*",
-    "mtchabok/class_alias": ">=0.3.1"
+    "ext-simplexml": "*"
   },
   "autoload": {
     "psr-4": {

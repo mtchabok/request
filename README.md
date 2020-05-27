@@ -21,15 +21,14 @@ How To Usage
 ```php
 use \Mtchabok\Request\Request;
 
-$request = Request::newRequest();
-$request = Request::newCli();
-$request = Request::newRequestGlobal();
-$request = Request::newGetGlobal();
-$request = Request::newCliGlobal();
+$request = Request::newRequest(Request::METHOD_CLI);
+$request = Request::newRequestGlobal(['method'=>Request::METHOD_GET]);
 ```
 
 #### Request Server Details ($_SERVER or local array) ####
 ```php
+use \Mtchabok\Request\Request;
+$request = Request::newRequest();
 $request->server->HTTP_HOST;
 $request->server->getString('REMOTE_ADDR', '127.0.0.1');
 $request->server['REQUEST_TIME'];
@@ -37,6 +36,8 @@ $request->server['REQUEST_TIME'];
 
 #### Request Query Details ($_GET or local array) ####
 ```php
+use \Mtchabok\Request\Request;
+$request = Request::newRequest();
 $request->query->foo; // string
 $request->query->getNumber('id', 12); // numeric: int or float
 $request->query['page']; // string
@@ -44,6 +45,8 @@ $request->query['page']; // string
 
 #### Request Post Details ($_POST or local array) ####
 ```php
+use \Mtchabok\Request\Request;
+$request = Request::newRequest();
 $request->post->first_name;
 $request->post->getString('last_name', null, ' -'); // return (string) (isset($_POST['last_name']) ?trim($_POST['last_name'], ' -') :null);
 $request->post['mobile'];
@@ -51,6 +54,8 @@ $request->post['mobile'];
 
 #### Request Set Data ####
 ```php
+use \Mtchabok\Request\Request;
+$request = Request::newRequest();
 $request->post->country = 'Iran';
 $request->post->set('city', 'Tehran');
 $request->get['postal_code'] = '1234567890';
@@ -58,6 +63,8 @@ $request->get['postal_code'] = '1234567890';
 
 #### Request Delete Data ####
 ```php
+use \Mtchabok\Request\Request;
+$request = Request::newRequest();
 $request->query->delete('postal_code');
 unset($request->post->city);
 unset($request->post['country']);
